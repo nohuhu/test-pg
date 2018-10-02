@@ -1,0 +1,8 @@
+#!/bin/sh
+
+if [ "$1" = "--version" ]; then
+    echo "postgres (PostgreSQL) 99.999"
+fi
+
+exit 0
+

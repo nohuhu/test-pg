@@ -28,8 +28,6 @@ doIt("starting/stopping", function() {
         
         describe("starting", function() {
             it("should be able to start TestPg instance", async function() {
-                this.timeout(5000);
-                
                 await testpg.start();
     
                 pid = testpg.pid;
@@ -83,8 +81,6 @@ doIt("starting/stopping", function() {
         
         describe("stopping", function() {
             it("should be able to stop TestPg instance", async function() {
-                this.timeout(5000);
-                
                 await testpg.stop();
                 
                 expect(testpg.started).to.be(false);
@@ -188,8 +184,6 @@ doIt("starting/stopping", function() {
             });
             
             it("should stop", async function() {
-                this.timeout(5000);
-                
                 const pid = testpg1.pid;
                 
                 await testpg1.stop();
@@ -250,8 +244,6 @@ doIt("starting/stopping", function() {
             });
             
             it("should stop", async function() {
-                this.timeout(5000);
-                
                 const pid = testpg2.pid;
                 
                 await testpg2.stop();
@@ -285,24 +277,18 @@ doIt("starting/stopping", function() {
         
         describe("starting", function() {
             it("should be able to start first instance", async function() {
-                this.timeout(5000);
-                
                 await testpg1.start();
                 
                 expect(testpg1.started).to.be(true);
             });
             
             it("should be able to start second instance", async function() {
-                this.timeout(5000);
-                
                 await testpg2.start();
                 
                 expect(testpg2.started).to.be(true);
             });
             
             it("should be able to start third instance", async function() {
-                this.timeout(5000);
-                
                 await testpg3.start();
                 
                 expect(testpg3.started).to.be(true);
@@ -331,9 +317,6 @@ doIt("starting/stopping", function() {
             });
             
             it("should be able to query all instances", async function() {
-                // Give Postgres a chance to do its thing!
-                this.timeout(10000);
-                
                 const result = await Promise.all([
                     pg1.query('SELECT datname FROM pg_database ORDER BY datname'),
                     pg2.query('SELECT datname FROM pg_database ORDER BY datname'),
@@ -422,8 +405,6 @@ doIt("starting/stopping", function() {
             
             describe("sync stop", function() {
                 it("should stop all instances synchronously", function() {
-                    this.timeout(10000);
-                
                     testpg1.stopSync();
                     testpg2.stopSync();
                     testpg3.stopSync();

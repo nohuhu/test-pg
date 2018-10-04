@@ -37,8 +37,6 @@ doIt("configuration", function() {
         });
         
         it("should be able to set up", async function() {
-            this.timeout(5000);
-            
             await testpg.setup();
             
             const out = await testpg.execProgram(
@@ -50,8 +48,6 @@ doIt("configuration", function() {
         });
         
         it("should be able able to start", async function() {
-            this.timeout(500000);
-            
             await testpg.start();
             
             expect(testpg.started).to.be(true);
@@ -107,8 +103,6 @@ bgwriter_lru_maxpages = 0
         });
         
         it("should be able to start", async function() {
-            this.timeout(5000);
-            
             await testpg.start();
             
             expect(testpg.started).to.be(true);

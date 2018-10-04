@@ -24,7 +24,6 @@ module.exports = {
                 CallExpression: {
                     "arguments": "first"
                 },
-                outerIIFEBody: 0,
                 ignoreComments: false,
                 flatTernaryExpressions: true,
                 VariableDeclarator: 1

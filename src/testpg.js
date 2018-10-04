@@ -70,6 +70,8 @@ class TestPg {
         // This is an exception. We always start test Postgres instance on localhost.
         this.host = _defaults.host;
         
+        this.started = false;
+        
         if (!skipInit) {
             // Make sure we have one or the other ways of starting Postgres:
             if (!this.pg_ctl || !this.postmaster) {
@@ -369,29 +371,6 @@ class TestPg {
         const params = this._clientConnectionParams(extraParams);
         
         return new Client(params);
-    }
-    
-    async connect(cb) {
-        if (!this.started) {
-            await this.start();
-        }
-        
-        return this.getPool().connect(cb);
-    }
-    
-    async query(text, values, cb) {
-        const client = await this.connect();
-        
-        try {
-            // Return *result*, not promise
-            return await client.query.apply(client, arguments);
-        }
-        catch (e) {
-            return Promise.reject(e);
-        }
-        finally {
-            await client.release();
-        }
     }
     
     async start() {
@@ -777,9 +756,65 @@ class TestPg {
             psql_commands = scripts.map(script => ['-f', script]);
         }
         
-        await Promise.all(psql_commands.map(cmd => this.run_psql(cmd)));
+        return Promise.all(psql_commands.map(cmd => this.run_psql(cmd)));
+    }
+
+    // Pool API compat
+    async connect(cb) {
+        if (!this.started) {
+            await this.start();
+        }
         
-        return true;
+        return this.getPool().connect(cb);
+    }
+    
+    async query() {
+        let client;
+        
+        try {
+            client = await this.connect();
+            
+            // Return the result, *not* the Promise
+            return await client.query.apply(client, arguments);
+        }
+        catch (e) {
+            return Promise.reject(e);
+        }
+        finally {
+            try {
+                if (client) {
+                    await client.release();
+                }
+            }
+            catch (e) {
+                // ignore
+            }
+        }
+    }
+    
+    async end(cb) {
+        try {
+            if (this.started) {
+                await this.stop();
+            }
+        }
+        catch (e) {
+            return cb ? cb(e) : Promise.reject(e);
+        }
+        
+        return cb ? cb() : Promise.resolve();
+    }
+    
+    get waitingCount() {
+        return this.getPool().waitingCount;
+    }
+    
+    get idleCount() {
+        return this.getPool().idleCount;
+    }
+    
+    get totalCount() {
+        return this.getPool().totalCount;
     }
 }
 

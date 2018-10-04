@@ -32,7 +32,7 @@ doIt("populating database", function() {
             await testpg.run_psql(['-c', "CREATE TABLE foo (bar int)"]);
             
             const out = await testpg.run_psql(
-                ['-c', "INSERT INTO foo (bar) VALUES (42) RETURNING *;"]
+                ['-c', "INSERT INTO foo (bar) VALUES (42) RETURNING *"]
             );
             
             // Output should be like:

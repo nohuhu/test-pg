@@ -3,7 +3,7 @@ const expect = require('expect.js');
 const TestPg = require('../src/testpg');
 
 describe("programs", function() {
-    let testpg, oldPath, hadPostgresHome, oldPostgresHome;
+    let testpg, hadPostgresHome, oldPostgresHome;
     
     before(function() {
         if ('POSTGRES_HOME' in process.env) {
@@ -49,12 +49,12 @@ describe("programs", function() {
     }
     
     describe("with PATH", function() {
-        let oldPath, oldPostgresHome;
+        let oldPath;
         
         before(function() {
             oldPath = process.env.PATH;
             
-            process.env.PATH = path.join(__dirname, 'lib', 'mock_bin');;
+            process.env.PATH = path.join(__dirname, 'lib', 'mock_bin');
             delete process.env.POSTGRES_HOME;
         });
         
@@ -70,7 +70,7 @@ describe("programs", function() {
         describe("pgVersion", function() {
             it("should not throw", function() {
                 expect(function() {
-                    const version = testpg.pgVersion;
+                    +testpg.pgVersion;
                 })
                 .to.not.throwException();
             });
@@ -93,7 +93,7 @@ describe("programs", function() {
         describe("pgVersion", function() {
             it("should not throw", function() {
                 expect(function() {
-                    const version = testpg.pgVersion;
+                    +testpg.pgVersion;
                 })
                 .to.not.throwException();
             });

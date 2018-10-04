@@ -59,7 +59,7 @@ doIt("starting/stopping", function() {
             let pg;
             
             before(function() {
-                pg = testpg.getClient();
+                pg = testpg._getClient();
                 
                 return pg.connect();
             });
@@ -117,6 +117,7 @@ doIt("starting/stopping", function() {
         
         after(function() {
             testpg1 = testpg2 = null;
+            
             return fs.remove(baseDir);
         });
         
@@ -145,10 +146,10 @@ doIt("starting/stopping", function() {
                 expect(testpg1.started).to.be(true);
             });
             
-            it("should connect", function() {
-                pg1 = testpg1.getClient();
+            it("should connect", async function() {
+                pg1 = await testpg1.connect();
                 
-                return pg1.connect();
+                expect(pg1._connected).to.be(true);
             });
             
             it("should query", async function() {
@@ -187,6 +188,8 @@ doIt("starting/stopping", function() {
             });
             
             it("should stop", async function() {
+                this.timeout(5000);
+                
                 const pid = testpg1.pid;
                 
                 await testpg1.stop();
@@ -230,9 +233,9 @@ doIt("starting/stopping", function() {
             });
             
             it("should connect", async function() {
-                pg2 = testpg2.getClient();
+                pg2 = await testpg2.connect();
                 
-                return pg2.connect();
+                expect(pg2._connected).to.be(true);
             });
             
             it("should query", async function() {
@@ -247,6 +250,8 @@ doIt("starting/stopping", function() {
             });
             
             it("should stop", async function() {
+                this.timeout(5000);
+                
                 const pid = testpg2.pid;
                 
                 await testpg2.stop();
@@ -308,9 +313,9 @@ doIt("starting/stopping", function() {
             let pg1, pg2, pg3;
             
             before(function() {
-                pg1 = testpg1.getClient();
-                pg2 = testpg2.getClient();
-                pg3 = testpg3.getClient();
+                pg1 = testpg1._getClient();
+                pg2 = testpg2._getClient();
+                pg3 = testpg3._getClient();
             });
             
             after(function() {
@@ -417,6 +422,8 @@ doIt("starting/stopping", function() {
             
             describe("sync stop", function() {
                 it("should stop all instances synchronously", function() {
+                    this.timeout(10000);
+                
                     testpg1.stopSync();
                     testpg2.stopSync();
                     testpg3.stopSync();

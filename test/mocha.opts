@@ -1,0 +1,4 @@
+--require test/_mocha.js
+--slow 5000
+--timeout 10000
+--check-leaks

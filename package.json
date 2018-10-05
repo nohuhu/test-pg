@@ -4,6 +4,7 @@
   "description": "Transparently create temporary PostgreSQL server instances for testing",
   "main": "./src/testpg.js",
   "scripts": {
+    "lint": "eslint .",
     "test": "mocha"
   },
   "repository": {

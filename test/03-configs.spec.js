@@ -40,7 +40,7 @@ doIt("configuration", function() {
             await testpg.setup();
             
             const out = await testpg.execProgram(
-                [testpg.postmaster, '-D', testpg.dataDir, '-C', 'synchronous_commit']
+                [testpg.postmaster, '-D', testpg.baseDir, '-C', 'synchronous_commit']
             );
             
             // Default for synchronous_commit is on
@@ -91,32 +91,51 @@ doIt("configuration", function() {
         it("should be able to create TestPg instance", function() {
             expect(function() {
                 testpg = new TestPg({
-                    serverConfig: `# foo baroo mymse throbbozongo
+                    'postgresql.conf': `# foo baroo mymse throbbozongo
 fsync = off
 synchronous_commit = off
 full_page_writes = off
 bgwriter_lru_maxpages = 0
+`,
+                    'pg_hba.conf': `# zurgo kleffe poot blivit
+local all all trust
+host all all 127.0.0.1/32 trust
+`,
+
+                    'pg_ident.conf': `# gurgle plugh fumble zingbong
 `
                 });
             })
             .to.not.throwException();
         });
         
-        it("should be able to start", async function() {
+        it("should be able to setup", async function() {
             await testpg.start();
             
             expect(testpg.started).to.be(true);
         });
         
         it("should write custom postgresql.conf", function() {
-            const conf = fs.readFileSync(path.join(testpg.dataDir, 'postgresql.conf'));
+            const conf = fs.readFileSync(path.join(testpg.baseDir, 'postgresql.conf'));
             
             expect(/^# foo baroo mymse throbbozongo/.test(conf)).to.be(true);
         });
         
+        it("should write custom pg_hba.conf", function() {
+            const conf = fs.readFileSync(path.join(testpg.baseDir, 'pg_hba.conf'));
+            
+            expect(/^# zurgo kleffe poot blivit/.test(conf)).to.be(true);
+        });
+        
+        it("should write custom pg_ident.conf", function() {
+            const conf = fs.readFileSync(path.join(testpg.baseDir, 'pg_ident.conf'));
+            
+            expect(/^# gurgle plugh fumble zingbong/.test(conf)).to.be(true);
+        });
+        
         it("should start with custom parameters", async function() {
             const out = await testpg.execProgram(
-                [testpg.postmaster, '-D', testpg.dataDir, '-C', 'synchronous_commit']
+                [testpg.postmaster, '-D', testpg.baseDir, '-C', 'synchronous_commit']
             );
             
             expect(/^off/.test(out)).to.be(true);

@@ -23,13 +23,13 @@ const _defaults = {
 
 const ownConfigs = [
     'host', 'port', 'user', 'password', 'database',
-    'basePort', 'baseDir', 'serverConfig', 'extraInitdbArgs', 'extraPsqlArgs',
-    'seed', 'uid', 'extraPostmasterArgs',
+    'basePort', 'baseDir', 'extraInitdbArgs', 'extraPsqlArgs', 'extraPostmasterArgs',
+    'seed', 'uid', 'postgresql.conf', 'pg_hba.conf', 'pg_ident.conf',
 ];
 
 const ownPrefixedConfigs = [
     'initdb', 'initdbArgs', 'pg_ctl', 'psql', 'psqlArgs', 'postmaster', 'postmasterArgs',
-    'databaseOwner',
+    'databaseOwner', 'logFilePath',
 ];
 
 class TestPg {
@@ -292,8 +292,12 @@ class TestPg {
         return this._pgVersion;
     }
     
-    get dataDir() {
-        return path.join(this.baseDir, 'data');
+    get logFilePath() {
+        if (this._logFilePath) {
+            return this._logFilePath;
+        }
+        
+        return path.join(this.baseDir, 'postgres.log');
     }
     
     get connectionString() {
@@ -331,7 +335,7 @@ class TestPg {
         return [
             this.pg_ctl,
             'stop', '-s',
-            '-D', this.dataDir,
+            '-D', this.baseDir,
             '-m', 'fast'
         ];
     }
@@ -386,13 +390,8 @@ class TestPg {
         if (!this._setupDone) {
             await this.setup();
         }
-        
-        if (this.port > 0) {
-            await this._tryStart(this.port);
-        }
-        else {
-            await this._findPortAndLaunch();
-        }
+
+        await this._findPortAndLaunch();
         
         this.started = true;
         
@@ -463,20 +462,13 @@ class TestPg {
             return true;
         }
         
-        let exists;
+        const pg_version_file = path.join(this.baseDir, 'PG_VERSION');
         
-        try {
-            exists = fs.statSync(this.dataDir).isDirectory();
-        }
-        catch (e) {
-            // ignore;
-        }
-        
-        if (!exists) {
+        if (!fs.pathExistsSync(pg_version_file)) {
             if (this.pg_ctl) {
                 const cmd = [
                     this.pg_ctl,
-                    'init', '-s', '-w', '-D', this.dataDir, '-o', this.initdbArgs.join(' '),
+                    'init', '-s', '-w', '-D', this.baseDir, '-o', this.initdbArgs.join(' '),
                 ];
                 
                 await this.execProgram(cmd);
@@ -485,29 +477,48 @@ class TestPg {
                 throw new Error("Pre-9.0 PostgreSQL is to do");
             }
             
-            const conf_file = path.join(this.dataDir, 'postgresql.conf');
+            const conf_file = path.join(this.baseDir, 'postgresql.conf');
             
-            if (this.serverConfig) {
-                try {
-                    fs.writeFileSync(conf_file, this.serverConfig);
-                }
-                catch (e) {
-                    throw new Error(`Cannot write PostgreSQL configuration file! ${e || ''}`);
-                }
+            if (this['postgresql.conf']) {
+                this._writeConfig('postgresql.conf');
             }
             else {
-                // use Postgres hardcoded configuration as some packagers mess around
+                // Use Postgres hardcoded configuration as some packagers mess around
                 // with postgresql.conf.sample too much:
                 try {
                     fs.truncateSync(conf_file);
                 }
                 catch (e) {
-                    throw new Error(`Cannot truncate PostgreSQL configuration file! ${e || ''}`);
+                    throw new Error(
+                        "Cannot truncate PostgreSQL configuration file 'postgresql.conf'! " +
+                        (e || "")
+                    );
                 }
+            }
+            
+            if (this['pg_hba.conf']) {
+                this._writeConfig('pg_hba.conf');
+            }
+            
+            if (this['pg_ident.conf']) {
+                this._writeConfig('pg_ident.conf');
             }
         }
         
-        return this._setupDone = true;
+        this._setupDone = true;
+    }
+    
+    _writeConfig(configName) {
+        const conf_file = path.join(this.baseDir, configName);
+        
+        try {
+            fs.writeFileSync(conf_file, this[configName]);
+        }
+        catch (e) {
+            throw new Error(
+                `Cannot write PostgreSQL configuration file '${configName}'!  ${e || ""}`
+            );
+        }
     }
     
     _findProgram(prog, suppressErrors) {
@@ -532,13 +543,23 @@ class TestPg {
     }
     
     async _findPortAndLaunch() {
-        let tries = 10;
+        const basePort = this.basePort;
+        let tries = this.startRetries || 10;
         
-        let port = this.basePort;
+        // Try starting on configured port if it is provided; there is a chance
+        // that it's free to use. If not then start at the basePort and try to find
+        // unused port.
+        const ports =
+            [...new Array(tries).keys()].map(idx => basePort + Math.ceil(Math.random() * 100));
+        
+        if (this.port > 0) {
+            ports.unshift(this.port);
+        }
         
         // try by incrementing port number
-        while (tries >= 0) {
-            let started;
+        while (ports.length) {
+            let port = ports.shift(),
+                started;
             
             try {
                 await this._tryStart(port);
@@ -546,31 +567,44 @@ class TestPg {
             }
             catch (e) {
                 if (tries-- <= 0) {
-                    throw new Error(`Failed to start PostgreSQL on port ${port}: ${e}`);
+                    let postgresLog;
+                    
+                    try {
+                        const stat = fs.statSync(this.logFilePath);
+                        
+                        // Arbitrarily chosen size
+                        if (stat && stat.size < 10240) {
+                            postgresLog = fs.readFileSync(this.logFilePath);
+                        }
+                    }
+                    catch (e2) {
+                        // ignore
+                    }
+                    
+                    throw new Error(
+                        `Failed to start PostgreSQL on port ${port}: ${e}` +
+                        (postgresLog ? "\nLog file content:\n\n" + postgresLog.toString() : "")
+                    );
                 }
             }
             
             if (started) {
                 return true;
             }
-            
-            port++;
         }
     }
     
     async _tryStart(port) {
-        const logfile = path.join(this.baseDir, 'postgres.log');
-        
         if (this.pg_ctl) {
             const cmd = [
                 this.pg_ctl,
-                'start', '-s', '-w', '-D', this.dataDir, '-l', logfile,
+                'start', '-s', '-w', '-D', this.baseDir, '-l', this.logFilePath,
                 '-o', `${[].concat(this.postmasterArgs, '-p', port).join(' ')}`,
             ];
             
             await this.execProgram(cmd, true);
             
-            const pid_path = path.join(this.dataDir, 'postmaster.pid');
+            const pid_path = path.join(this.baseDir, 'postmaster.pid');
             
             try {
                 const pids = fs.readFileSync(pid_path).toString();

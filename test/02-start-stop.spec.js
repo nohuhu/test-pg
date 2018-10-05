@@ -3,6 +3,7 @@ const expect = require('expect.js');
 const path = require('path');
 const os = require('os');
 const fs = require('fs-extra');
+
 const TestPg = require('../src/testpg');
 
 let doIt;
@@ -40,8 +41,8 @@ doIt("starting/stopping", function() {
                 expect(fs.pathExistsSync(baseDir)).to.be(true);
             });
             
-            it("should create data dir", function() {
-                expect(fs.pathExistsSync(path.join(baseDir, 'data'))).to.be(true);
+            it("should init data dir", function() {
+                expect(fs.pathExistsSync(path.join(baseDir, 'PG_VERSION'))).to.be(true);
             });
             
             it("should start Postgres process", function() {
@@ -104,11 +105,22 @@ doIt("starting/stopping", function() {
     });
     
     describe("recycle baseDir", function() {
-        let baseDir, testpg1, testpg2, pg1, pg2;
+        let baseDir, stats, testpg1, testpg2, pg1, pg2;
         
-        before(function() {
-            baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'test-pg-baseDir-'));
-            fs.ensureFileSync(path.join(baseDir, 'fumblemumble.txt'));
+        before(async function() {
+            baseDir = fs.mkdtempSync(path.join(os.tmpdir(), 'testpg-baseDir-'));
+            
+            const _testpg = new TestPg({ _skipInit: true });
+            
+            await _testpg.execProgram([
+                _testpg.pg_ctl,
+                'init', '-s', '-w', '-D', baseDir, '-o', _testpg.initdbArgs.join(' '),
+            ]);
+            
+            stats = fs.statSync(path.join(baseDir, 'PG_VERSION'));
+            
+            delete stats.atime;
+            delete stats.atimeMs;
         });
         
         after(function() {
@@ -133,7 +145,11 @@ doIt("starting/stopping", function() {
             });
             
             it("should not remove or recreate configured baseDir", function() {
-                expect(fs.pathExistsSync(path.join(baseDir, 'fumblemumble.txt'))).to.be(true);
+                const newStats = fs.statSync(path.join(baseDir, 'PG_VERSION'));
+                delete newStats.atime;
+                delete newStats.atimeMs;
+                
+                expect(newStats).to.eql(stats);
             });
             
             it("should start", async function() {
@@ -196,8 +212,8 @@ doIt("starting/stopping", function() {
                 .to.throwException();
             });
             
-            it("should not remove baseDir", function() {
-                expect(fs.pathExistsSync(baseDir)).to.be(true);
+            it("should not remove or empty baseDir", function() {
+                expect(fs.pathExistsSync(path.join(baseDir, 'PG_VERSION'))).to.be(true);
             });
         });
         
@@ -217,7 +233,11 @@ doIt("starting/stopping", function() {
             });
             
             it("should not remove or recreate configured baseDir", function() {
-                expect(fs.pathExistsSync(path.join(baseDir, 'fumblemumble.txt'))).to.be(true);
+                const newStats = fs.statSync(path.join(baseDir, 'PG_VERSION'));
+                delete newStats.atime;
+                delete newStats.atimeMs;
+                
+                expect(newStats).to.eql(stats);
             });
             
             it("should start", async function() {
@@ -256,8 +276,8 @@ doIt("starting/stopping", function() {
                 .to.throwException();
             });
             
-            it("should not remove baseDir", function() {
-                expect(fs.pathExistsSync(baseDir)).to.be(true);
+            it("should not remove or empty baseDir", function() {
+                expect(fs.pathExistsSync(path.join(baseDir, 'PG_VERSION'))).to.be(true);
             });
         });
     });
@@ -375,7 +395,7 @@ doIt("starting/stopping", function() {
                 
                 it("instance 1 directories should exist", function() {
                     expect(fs.pathExistsSync(baseDir1)).to.be(true);
-                    expect(fs.pathExistsSync(path.join(baseDir1, 'data'))).to.be(true);
+                    expect(fs.pathExistsSync(path.join(baseDir1, 'PG_VERSION'))).to.be(true);
                 });
                 
                 it("instance 2 process should be started", function() {
@@ -387,7 +407,7 @@ doIt("starting/stopping", function() {
                 
                 it("instance 2 directories should exist", function() {
                     expect(fs.pathExistsSync(baseDir2)).to.be(true);
-                    expect(fs.pathExistsSync(path.join(baseDir2, 'data'))).to.be(true);
+                    expect(fs.pathExistsSync(path.join(baseDir2, 'PG_VERSION'))).to.be(true);
                 });
                 
                 it("instance 3 process should be started", function() {
@@ -399,7 +419,13 @@ doIt("starting/stopping", function() {
                 
                 it("instance 3 directories should exist", function() {
                     expect(fs.pathExistsSync(baseDir3)).to.be(true);
-                    expect(fs.pathExistsSync(path.join(baseDir3, 'data'))).to.be(true);
+                    expect(fs.pathExistsSync(path.join(baseDir3, 'PG_VERSION'))).to.be(true);
+                });
+                
+                it("should create different baseDir for all 3 instances", function() {
+                    expect(baseDir1).to.not.be(baseDir2);
+                    expect(baseDir1).to.not.be(baseDir3);
+                    expect(baseDir2).to.not.be(baseDir3);
                 });
             });
             
